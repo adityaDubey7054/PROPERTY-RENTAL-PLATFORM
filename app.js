@@ -24,10 +24,7 @@ const userRouter = require("./routes/user.js");
 
 const dbUrl = process.env.ATLAS_DB_URL;
 
-/* ===========================
-   DATABASE CONNECTION
-=========================== */
-
+// CONNECT DB
 mongoose.connect(dbUrl)
   .then(() => {
     console.log("Connected to MongoDB");
@@ -36,10 +33,7 @@ mongoose.connect(dbUrl)
     console.log("MongoDB Error:", err);
   });
 
-/* ===========================
-   EXPRESS CONFIG
-=========================== */
-
+// EJS + VIEWS
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 app.engine("ejs", ejsMate);
@@ -48,21 +42,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride("_method"));
 app.use(express.static(path.join(__dirname, "public")));
 
-/* ===========================
-   SESSION CONFIG
-=========================== */
-
+// SESSION + STORE
 const store = MongoStore.create({
   mongoUrl: dbUrl,
-  crypto: {
-    secret: process.env.SECRET,
-  },
+  crypto: { secret: process.env.SECRET },
   touchAfter: 24 * 3600,
 });
-
-store.on("error", () => {
-  console.log("ERROR in Mongo Session Store");
-});
+store.on("error", () => console.log("SESSION STORE ERROR"));
 
 const sessionOptions = {
   store,
@@ -70,29 +56,21 @@ const sessionOptions = {
   resave: false,
   saveUninitialized: false,
   cookie: {
+    httpOnly: true,
     expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    httpOnly: true,
   },
 };
 
 app.use(session(sessionOptions));
 app.use(flash());
 
-/* ===========================
-   PASSPORT CONFIG
-=========================== */
-
+// PASSPORT
 app.use(passport.initialize());
 app.use(passport.session());
-
 passport.use(new LocalStrategy(User.authenticate()));
 passport.serializeUser(User.serializeUser());
 passport.deserializeUser(User.deserializeUser());
-
-/* ===========================
-   GLOBAL MIDDLEWARE
-=========================== */
 
 app.use((req, res, next) => {
   res.locals.success = req.flash("success");
@@ -101,37 +79,22 @@ app.use((req, res, next) => {
   next();
 });
 
-/* ===========================
-   ROUTES
-=========================== */
-
+// ROUTES
 app.use("/", userRouter);
 app.use("/listings", listingRouter);
 app.use("/listings/:id/reviews", reviewsRouter);
-
-/* ===========================
-   404 HANDLER
-=========================== */
 
 app.all("*", (req, res, next) => {
   next(new ExpressError(404, "Page not found"));
 });
 
-/* ===========================
-   ERROR HANDLER
-=========================== */
-
 app.use((err, req, res, next) => {
   let { statusCode = 500, message = "Something went wrong!" } = err;
-  res.status(statusCode).render("error.ejs", { message });
+  res.status(statusCode).render("error", { message });
 });
 
-/* ===========================
-   SERVER START
-=========================== */
-
+// USE ENV PORT
 const PORT = process.env.PORT || 8080;
-
 app.listen(PORT, () => {
-  console.log(`Server is listening on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
